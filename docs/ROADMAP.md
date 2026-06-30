@@ -116,30 +116,54 @@ moment: 380ms accent + art cross-fade on track change. Tokens live in `src/lib/t
 - [ ] Add yourself as a user in the app's dashboard (dev mode allowlist).
 - [x] Scaffolded: Tauri 2 + SvelteKit (TS), SPA. Window is frameless / transparent /
       always-on-top (`src-tauri/tauri.conf.json`). Builds and runs.
-- [ ] Add Rust deps: `reqwest`, `serde`, `tokio`, `keyring`, `oauth2` (or hand-roll PKCE).
+- [x] Add Rust deps: `reqwest` (rustls), `serde`, `tokio`, `keyring`, plus `sha2`/`base64`/
+      `rand`/`urlencoding`/`open` for hand-rolled PKCE (no `oauth2` crate).
+
+**Dev environment on this machine (no admin + corporate proxy).** The build PC can't
+run admin installers and forces traffic through `http://gps:8080`. So:
+- Rust toolchain via rustup (Rust 1.96); MSVC compiler/linker installed *per-user, no admin*
+  with mmozeiko's `portable-msvc.py` into `C:\Users\rs-fhalim\msvc` (`setup_x64.bat` sets the env).
+- Proxy set for cargo in `~/.cargo/config.toml` and for the app's `reqwest` via `HTTP(S)_PROXY`.
+- **Launch dev with `.\dev.cmd`** (repo root) — it wires cargo onto PATH, sources the portable
+  MSVC env, and sets the proxy (localhost bypassed). A bare `npm run tauri dev` will fail.
+- **Gotcha:** `time` is pinned to `0.3.51` in `Cargo.lock`. `0.3.52` breaks tauri's `cookie`
+  dep (`parse()` arg-count change). Don't `cargo update` it back up until tauri's tree catches up.
 
 ### Phase 1 — Auth (Authorization Code + PKCE)
-- [ ] Implement PKCE: generate code_verifier/challenge.
-- [ ] Open the system browser to `/authorize` with scopes + challenge.
-- [ ] Spin up a tiny local listener on `127.0.0.1:8888` to catch the redirect code.
-- [ ] Exchange code → access + refresh tokens at `/api/token`.
-- [ ] Store tokens in the OS keychain. Implement silent refresh.
-- [ ] Acceptance: app authorizes once, survives restart without re-login.
+All in `src-tauri/src/auth.rs`; commands wired in `lib.rs`. `cargo check` green.
+- [x] Implement PKCE: generate code_verifier/challenge (`pkce_pair`).
+- [x] Open the system browser to `/authorize` with scopes + challenge (`open` crate).
+- [x] Spin up a tiny local listener on `127.0.0.1:8888` to catch the redirect code
+      (bound *before* opening the browser; validates `state`; 5-min timeout).
+- [x] Exchange code → access + refresh tokens at `/api/token`.
+- [x] Store tokens in the OS keychain (one JSON blob). Silent refresh in `valid_access_token`.
+- [x] Frontend auth gate in `+page.svelte` (Connect screen → now-playing); `whoami` (`GET /me`)
+      proves the loop without exposing the token to the webview.
+- [x] **Acceptance: logged in successfully via the Connect flow.** (Keychain persistence + silent refresh implemented; survives restart.)
 
 ### Phase 2 — Now-playing core
-- [ ] `get_playback_state` command + 1s polling loop.
-- [ ] Render: album art, track title, artist, album, progress bar, device name.
-- [ ] Transport: play/pause, next, previous, seek (click/drag progress bar),
-      volume, shuffle toggle, repeat toggle.
-- [ ] Handle "no active device" gracefully (prompt user to start Spotify / pick a device via `/devices` + transfer).
-- [ ] Acceptance: full control of the running desktop client from the miniplayer.
+Rust in `src-tauri/src/spotify.rs`; UI in `+page.svelte`. `cargo check` + `svelte-check` green.
+- [x] `get_playback_state` command + polling loop (1s playing / 4s paused).
+- [x] Render: album art, title, artist, album, progress bar, device name (in the timestamp row).
+- [x] Transport: play/pause (optimistic), next, previous, seek (click/drag rail),
+      volume slider, shuffle toggle, repeat cycle (off→context→track). Re-polls after each command.
+- [x] Local progress interpolation between polls (basic; smoothing/reconciliation polish is Phase 3).
+- [x] Handle "no active device" gracefully ("Nothing playing" state + Refresh). Device picker/transfer deferred.
+- [x] **Acceptance: full control of the running desktop client confirmed** (play/pause, skip, seek, volume,
+      shuffle, repeat). Note: skip/seek have a visible delay — inherent in the command→Spotify→re-poll round-trip.
 
 ### Phase 3 — UI/UX polish (the whole point)
-- [ ] Frameless, compact, **always-on-top** window. Custom drag region.
-- [ ] Custom theme system (consider pulling a dominant color from album art for accents).
-- [ ] Smooth progress animation between polls (interpolate locally using `progress_ms` + elapsed time; reconcile on each poll).
-- [ ] Remember window position/size between launches.
-- [ ] Optional: compact/expanded modes, hover controls.
+Accent sampling in `src-tauri/src/color.rs`; cross-fade + tokens in `theme.css`. Both checks green.
+- [x] Frameless, compact, **always-on-top** window with custom drag region (scaffold + `data-tauri-drag-region`).
+- [x] **Album-art-as-light-source:** `get_accent` decodes the cover in Rust (no webview CORS taint),
+      extracts a vivid hue via a saturation-weighted histogram with an adaptive luminance clamp
+      (lilac fallback for greyscale art). Frontend sets `--accent` on track change.
+- [x] **380ms accent cross-fade** via `@property --accent` + `html { transition: --accent }`; the bloom,
+      progress fill, and active icons all glide to the new color.
+- [x] Smooth progress interpolation between polls (Phase 2), now with optimistic seek so the bar holds.
+- [x] Remember window position/size between launches (`tauri-plugin-window-state`).
+- [x] Hover-reveal transport controls (art-first; play button stays accent-lit).
+- [ ] **Acceptance (manual): confirm the player glows the cover's color and cross-fades on track change; window remembers its spot.**
 
 ### Phase 4 — Queue + search
 - [ ] Queue view: `GET /me/player/queue` (currently playing + up next). Read-only display.
@@ -168,7 +192,17 @@ moment: 380ms accent + art cross-fade on track change. Tokens live in `src/lib/t
   re-fetch state after a command rather than assuming success.
 - This stays personal-use (≤5 allowlisted users). Don't build signup/multi-user infra.
 
-## 7. Start here
-Begin with **Phase 0 and Phase 1**. Get OAuth + secure token storage working and
-verified before any UI work. Once `get_playback_state` returns live data from my
-running Spotify desktop app, move to Phase 2.
+## 7. Status & where to pick up
+
+**Done & verified (Phases 0–2), Phase 3 code-complete:**
+- Phase 0 — toolchain on the corporate PC: Rust 1.96, per-user portable MSVC, proxy wired.
+  Launch dev with **`.\dev.cmd`** (repo root); a bare `npm run tauri dev` fails. `time` pinned to 0.3.51.
+- Phase 1 — OAuth (PKCE) + keychain + silent refresh (`src-tauri/src/auth.rs`). Login confirmed working.
+- Phase 2 — live `get_playback_state` polling + full transport (`src-tauri/src/spotify.rs`, `+page.svelte`).
+  Full control confirmed.
+- Phase 3 — album-art accent sampling (`src-tauri/src/color.rs`), 380ms cross-fade, window-state
+  persistence, hover controls. `cargo check` + `svelte-check` green; **awaiting manual visual sign-off.**
+
+**Next session:** start by visually verifying Phase 3 (the glow + cross-fade), tune the color
+histogram in `color.rs` if the sampled accent feels off, then build **Phase 4** (read-only queue +
+add-to-queue via search).

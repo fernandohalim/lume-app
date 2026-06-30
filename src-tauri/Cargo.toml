@@ -18,7 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
+tauri = { version = "2", features = ["macos-private-api"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -37,4 +37,8 @@ rand = "0.8"
 urlencoding = "2"
 # Open the system browser to Spotify's consent page.
 open = "5"
+# Decode album art in Rust to sample its dominant color (no webview CORS taint).
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
+# Remember window position/size between launches.
+tauri-plugin-window-state = "2"
 

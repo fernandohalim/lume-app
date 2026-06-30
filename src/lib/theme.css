@@ -49,6 +49,16 @@
 
 * { box-sizing: border-box; }
 
+/* Register --accent as a real color so it can be *animated*. When JS swaps the
+   sampled color on a track change, the transition below cross-fades it (380ms),
+   and everything derived from it (--accent-soft, --glow, --bloom via color-mix,
+   the bloom backdrop, progress fill, active icons) glides to the new color. */
+@property --accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #c8b6ff;
+}
+
 html, body {
   margin: 0;
   /* Transparent so the rounded glass card floats over the desktop */
@@ -60,6 +70,9 @@ html, body {
   cursor: default;
   overflow: hidden;
 }
+
+/* The signature cross-fade lives here: animate the root accent on change. */
+html { transition: --accent var(--accent-fade); }
 
 @media (prefers-reduced-motion: reduce) {
   :root { --accent-fade: 0ms; }
