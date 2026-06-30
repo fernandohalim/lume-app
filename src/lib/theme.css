@@ -1,0 +1,67 @@
+/* ============================================================
+   lūme — design tokens
+   Wordmark: always lowercase "lūme" (macron ū), Bricolage Grotesque.
+   Concept: the album art is the light source. The whole UI's
+   accent (--accent) is sampled from the current cover at runtime,
+   and a blurred copy of the art blooms behind the card. The player
+   literally glows the color of whatever is playing.
+
+   Identity locked (Phase 0): bold bloom · deep night glass · art-first.
+   Spend boldness on the light; keep everything else quiet glass.
+   ============================================================ */
+
+:root {
+  /* Base — near-black with a faint blue cast, not flat #000 */
+  --bg:          #0b0b0f;
+  --surface:     rgba(255, 255, 255, 0.045);
+  --surface-2:   rgba(255, 255, 255, 0.08);
+  --hairline:    rgba(255, 255, 255, 0.08);
+
+  --text:        #f2f3f5;
+  --text-dim:    #9a9ca5;
+  --text-faint:  #62646d;
+
+  /* Dynamic accent — overwritten in JS from album art.
+     Fallback is a soft lilac so the app never looks broken. */
+  --accent:      #c8b6ff;
+  --accent-soft: color-mix(in srgb, var(--accent) 22%, transparent);
+  --glow:        color-mix(in srgb, var(--accent) 38%, transparent);  /* edges, active icons */
+  --bloom:       color-mix(in srgb, var(--accent) 60%, transparent);  /* the big blurred art backdrop */
+  /* TODO (sampler, Phase 3): adaptive luminance clamp — when the sampled
+     accent is very dark or near-gray, raise its luminance toward the lilac
+     fallback so muted/monochrome covers still glow instead of going gamer-RGB. */
+
+  /* Shape & depth — we draw our own card; OS chrome is off */
+  --radius:      18px;
+  --radius-sm:   10px;
+  --card-shadow: 0 18px 50px -12px rgba(0, 0, 0, 0.7),
+                 0 0 0 1px var(--hairline) inset;
+
+  /* Type — Bricolage Grotesque carries the title, Geist Mono the
+     timestamps (tabular so 0:00 never jitters). Two faces, no more. */
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-mono:    "Geist Mono", ui-monospace, "SF Mono", monospace;
+
+  /* Motion */
+  --ease:        cubic-bezier(0.22, 1, 0.36, 1);
+  --accent-fade: 380ms var(--ease);   /* cross-fade on track change */
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  /* Transparent so the rounded glass card floats over the desktop */
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-display);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  cursor: default;
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --accent-fade: 0ms; }
+  * { animation: none !important; transition: none !important; }
+}
