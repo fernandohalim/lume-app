@@ -18,7 +18,19 @@ use sha2::{Digest, Sha256};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
-const CLIENT_ID: &str = "c833608e7cbe4caaa05d60a788a453be";
+// Baked in at compile time from `.env` (see build.rs / .env.example). Not a
+// secret — PKCE has no client secret — but each user supplies their own Spotify
+// app's Client ID, since dev mode is per-developer with a 5-user allowlist.
+const CLIENT_ID: Option<&str> = option_env!("LUME_SPOTIFY_CLIENT_ID");
+
+fn client_id() -> Result<&'static str, String> {
+    CLIENT_ID.filter(|s| !s.is_empty()).ok_or_else(|| {
+        "LUME_SPOTIFY_CLIENT_ID was not set at build time — copy .env.example to \
+         .env, set your Spotify Client ID, and rebuild."
+            .to_string()
+    })
+}
+
 const REDIRECT_URI: &str = "http://127.0.0.1:8888/callback";
 const REDIRECT_PORT: u16 = 8888;
 const SCOPES: &str =
@@ -99,11 +111,11 @@ fn clear_tokens() -> Result<(), String> {
 
 // ---- OAuth flow ------------------------------------------------------------
 
-fn authorize_url(challenge: &str, state: &str) -> String {
+fn authorize_url(client_id: &str, challenge: &str, state: &str) -> String {
     format!(
         "{AUTH_URL}?response_type=code&client_id={}&scope={}&code_challenge_method=S256\
          &code_challenge={}&redirect_uri={}&state={}",
-        urlencoding::encode(CLIENT_ID),
+        urlencoding::encode(client_id),
         urlencoding::encode(SCOPES),
         urlencoding::encode(challenge),
         urlencoding::encode(REDIRECT_URI),
@@ -210,6 +222,7 @@ async fn post_token(params: &[(&str, &str)]) -> Result<StoredTokens, String> {
 /// Run the full PKCE login. Opens the browser, captures the redirect, stores tokens.
 #[tauri::command]
 pub async fn login() -> Result<(), String> {
+    let client_id = client_id()?;
     let (verifier, challenge) = pkce_pair();
     let state = URL_SAFE_NO_PAD.encode(random_bytes(16));
 
@@ -218,7 +231,7 @@ pub async fn login() -> Result<(), String> {
         .await
         .map_err(|e| format!("couldn't bind {REDIRECT_URI}: {e} (is another login in progress?)"))?;
 
-    open::that(authorize_url(&challenge, &state))
+    open::that(authorize_url(client_id, &challenge, &state))
         .map_err(|e| format!("couldn't open the browser: {e}"))?;
 
     let code = tokio::time::timeout(LOGIN_TIMEOUT, accept_code(listener, &state))
@@ -229,7 +242,7 @@ pub async fn login() -> Result<(), String> {
         ("grant_type", "authorization_code"),
         ("code", &code),
         ("redirect_uri", REDIRECT_URI),
-        ("client_id", CLIENT_ID),
+        ("client_id", client_id),
         ("code_verifier", &verifier),
     ])
     .await?;
@@ -264,7 +277,7 @@ pub async fn valid_access_token() -> Result<String, String> {
     let mut refreshed = post_token(&[
         ("grant_type", "refresh_token"),
         ("refresh_token", &tokens.refresh_token),
-        ("client_id", CLIENT_ID),
+        ("client_id", client_id()?),
     ])
     .await?;
 
