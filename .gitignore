@@ -12,3 +12,5 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 /.claude
+# Release staging (built artifacts)
+dist/
