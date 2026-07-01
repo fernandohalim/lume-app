@@ -1,0 +1,58 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    lūme app icon — "light blooming through deep-night glass."
+    A luminous lilac crescent (a backlit sphere) inside a soft colour bloom,
+    on near-black glass. Built from gradients + a mask (no blur filters) so it
+    rasterises crisply at every size, from 16px favicon to 1024px source.
+  -->
+  <defs>
+    <!-- deep night glass, faintly lilac-lifted toward the centre -->
+    <radialGradient id="bg" cx="50%" cy="44%" r="75%">
+      <stop offset="0%" stop-color="#17131f"/>
+      <stop offset="60%" stop-color="#0e0e13"/>
+      <stop offset="100%" stop-color="#09090c"/>
+    </radialGradient>
+
+    <!-- the big soft bloom: album-art-as-light-source, distilled -->
+    <radialGradient id="bloom" cx="54%" cy="53%" r="53%">
+      <stop offset="0%"  stop-color="#c8b6ff" stop-opacity="0.55"/>
+      <stop offset="42%" stop-color="#9a78ff" stop-opacity="0.30"/>
+      <stop offset="72%" stop-color="#7a5cff" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- tighter hot core hugging the lit side of the crescent -->
+    <radialGradient id="core" cx="57%" cy="57%" r="36%">
+      <stop offset="0%"   stop-color="#efe9ff" stop-opacity="0.60"/>
+      <stop offset="55%"  stop-color="#a98cff" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#a98cff" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- the crescent's own light: dim top-left → brilliant bottom-right edge -->
+    <linearGradient id="light" x1="26%" y1="24%" x2="82%" y2="84%">
+      <stop offset="0%"   stop-color="#7b5cff"/>
+      <stop offset="50%"  stop-color="#b9a6ff"/>
+      <stop offset="100%" stop-color="#f1ecff"/>
+    </linearGradient>
+
+    <!-- crescent = full sphere minus an offset disc carved from its upper-left -->
+    <mask id="crescent">
+      <rect width="1024" height="1024" fill="black"/>
+      <circle cx="512" cy="516" r="224" fill="white"/>
+      <circle cx="460" cy="458" r="172" fill="black"/>
+    </mask>
+
+    <!-- rounded app tile -->
+    <clipPath id="tile">
+      <rect x="0" y="0" width="1024" height="1024" rx="228" ry="228"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#tile)">
+    <rect width="1024" height="1024" fill="url(#bg)"/>
+    <rect width="1024" height="1024" fill="url(#bloom)"/>
+    <rect width="1024" height="1024" fill="url(#core)"/>
+    <rect width="1024" height="1024" fill="url(#light)" mask="url(#crescent)"/>
+    <!-- faint glass sheen hugging the very top edge -->
+    <ellipse cx="512" cy="36" rx="400" ry="132" fill="#ffffff" opacity="0.045"/>
+  </g>
+</svg>

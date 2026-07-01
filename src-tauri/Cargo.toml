@@ -1,8 +1,8 @@
 [package]
 name = "lume"
-version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+version = "1.0.0"
+description = "lūme — a Spotify custom miniplayer"
+authors = ["Fernando Halim"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -16,11 +16,9 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
-# Load LUME_SPOTIFY_CLIENT_ID from .env at compile time (see build.rs).
-dotenvy = "0.15"
 
 [dependencies]
-tauri = { version = "2", features = ["macos-private-api"] }
+tauri = { version = "2", features = ["macos-private-api", "tray-icon"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -43,4 +41,6 @@ open = "5"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 # Remember window position/size between launches.
 tauri-plugin-window-state = "2"
+# Load runtime config (Client ID / proxy) from a lume.env next to the exe.
+dotenvy = "0.15"
 

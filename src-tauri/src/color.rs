@@ -16,7 +16,7 @@ pub async fn get_accent(art_url: String) -> Result<String, String> {
     if art_url.is_empty() {
         return Ok(LILAC_FALLBACK.to_string());
     }
-    let bytes = reqwest::Client::new()
+    let bytes = crate::http::client()
         .get(&art_url)
         .send()
         .await

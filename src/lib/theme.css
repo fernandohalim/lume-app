@@ -34,8 +34,11 @@
   /* Shape & depth — we draw our own card; OS chrome is off */
   --radius:      18px;
   --radius-sm:   10px;
-  --card-shadow: 0 18px 50px -12px rgba(0, 0, 0, 0.7),
-                 0 0 0 1px var(--hairline) inset;
+  /* No outer drop shadow: the window hugs the content, so an outer shadow would
+     be clipped by the window edge and show as square boxes at the bottom corners.
+     Definition comes from an inset hairline + a faint top highlight (glass edge). */
+  --card-shadow: 0 0 0 1px var(--hairline) inset,
+                 0 1px 0 rgba(255, 255, 255, 0.05) inset;
 
   /* Type — Bricolage Grotesque carries the title, Geist Mono the
      timestamps (tabular so 0:00 never jitters). Two faces, no more. */

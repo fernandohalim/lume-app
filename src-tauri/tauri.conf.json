@@ -1,7 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Lume",
-  "version": "0.1.0",
+  "productName": "lūme",
+  "mainBinaryName": "lume",
+  "version": "1.0.0",
   "identifier": "com.lume.miniplayer",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -13,13 +14,13 @@
     "macOSPrivateApi": true,
     "windows": [
       {
-        "title": "Lume",
+        "title": "lūme",
         "width": 380,
         "height": 132,
-        "minWidth": 360,
-        "minHeight": 120,
-        "maxWidth": 520,
-        "resizable": true,
+        "minWidth": 200,
+        "minHeight": 48,
+        "maxWidth": 420,
+        "resizable": false,
         "decorations": false,
         "transparent": true,
         "shadow": false,

@@ -18,19 +18,10 @@ use sha2::{Digest, Sha256};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpListener;
 
-// Baked in at compile time from `.env` (see build.rs / .env.example). Not a
-// secret — PKCE has no client secret — but each user supplies their own Spotify
-// app's Client ID, since dev mode is per-developer with a 5-user allowlist.
-const CLIENT_ID: Option<&str> = option_env!("LUME_SPOTIFY_CLIENT_ID");
-
-fn client_id() -> Result<&'static str, String> {
-    CLIENT_ID.filter(|s| !s.is_empty()).ok_or_else(|| {
-        "LUME_SPOTIFY_CLIENT_ID was not set at build time — copy .env.example to \
-         .env, set your Spotify Client ID, and rebuild."
-            .to_string()
-    })
-}
-
+// The Spotify Client ID is resolved at runtime (env / lume.env / baked default)
+// by `crate::config` so distributed builds are configurable without a rebuild.
+// Not a secret — PKCE has no client secret — but each user's own Spotify app,
+// since dev mode is per-developer with a 5-user allowlist.
 const REDIRECT_URI: &str = "http://127.0.0.1:8888/callback";
 const REDIRECT_PORT: u16 = 8888;
 const SCOPES: &str =
@@ -195,7 +186,7 @@ async fn accept_code(listener: TcpListener, expected_state: &str) -> Result<Stri
 }
 
 async fn post_token(params: &[(&str, &str)]) -> Result<StoredTokens, String> {
-    let resp = reqwest::Client::new()
+    let resp = crate::http::client()
         .post(TOKEN_URL)
         .form(params)
         .send()
@@ -222,7 +213,7 @@ async fn post_token(params: &[(&str, &str)]) -> Result<StoredTokens, String> {
 /// Run the full PKCE login. Opens the browser, captures the redirect, stores tokens.
 #[tauri::command]
 pub async fn login() -> Result<(), String> {
-    let client_id = client_id()?;
+    let client_id = crate::config::client_id()?;
     let (verifier, challenge) = pkce_pair();
     let state = URL_SAFE_NO_PAD.encode(random_bytes(16));
 
@@ -231,7 +222,7 @@ pub async fn login() -> Result<(), String> {
         .await
         .map_err(|e| format!("couldn't bind {REDIRECT_URI}: {e} (is another login in progress?)"))?;
 
-    open::that(authorize_url(client_id, &challenge, &state))
+    open::that(authorize_url(&client_id, &challenge, &state))
         .map_err(|e| format!("couldn't open the browser: {e}"))?;
 
     let code = tokio::time::timeout(LOGIN_TIMEOUT, accept_code(listener, &state))
@@ -242,7 +233,7 @@ pub async fn login() -> Result<(), String> {
         ("grant_type", "authorization_code"),
         ("code", &code),
         ("redirect_uri", REDIRECT_URI),
-        ("client_id", client_id),
+        ("client_id", &client_id),
         ("code_verifier", &verifier),
     ])
     .await?;
@@ -274,10 +265,11 @@ pub async fn valid_access_token() -> Result<String, String> {
         return Ok(tokens.access_token);
     }
 
+    let client_id = crate::config::client_id()?;
     let mut refreshed = post_token(&[
         ("grant_type", "refresh_token"),
         ("refresh_token", &tokens.refresh_token),
-        ("client_id", client_id()?),
+        ("client_id", &client_id),
     ])
     .await?;
 
@@ -295,7 +287,7 @@ pub async fn valid_access_token() -> Result<String, String> {
 #[tauri::command]
 pub async fn whoami() -> Result<String, String> {
     let token = valid_access_token().await?;
-    let resp = reqwest::Client::new()
+    let resp = crate::http::client()
         .get("https://api.spotify.com/v1/me")
         .bearer_auth(token)
         .send()

@@ -115,7 +115,7 @@ struct Image {
 #[tauri::command]
 pub async fn get_playback_state() -> Result<Playback, String> {
     let token = valid_access_token().await?;
-    let resp = reqwest::Client::new()
+    let resp = crate::http::client()
         .get(format!("{API}/me/player"))
         .bearer_auth(token)
         .send()
@@ -176,7 +176,7 @@ pub async fn get_playback_state() -> Result<Playback, String> {
 /// Send a transport request with an empty body and check for success.
 async fn send(method: Method, path: &str) -> Result<(), String> {
     let token = valid_access_token().await?;
-    let resp = reqwest::Client::new()
+    let resp = crate::http::client()
         .request(method, format!("{API}{path}"))
         .bearer_auth(token)
         .header(reqwest::header::CONTENT_LENGTH, 0)
@@ -235,4 +235,142 @@ pub async fn set_repeat(state: String) -> Result<(), String> {
         return Err(format!("invalid repeat state: {state}"));
     }
     send(Method::PUT, &format!("/me/player/repeat?state={state}")).await
+}
+
+// ---- Phase 4: queue + search ----------------------------------------------
+
+/// Compact track shape for list rows (queue / search results).
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrackLite {
+    title: String,
+    artist: String,
+    art: String, // small thumbnail
+    uri: String,
+    duration_ms: u64,
+}
+
+impl Item {
+    fn into_lite(self) -> TrackLite {
+        let Item { name, duration_ms, uri, artists, album } = self;
+        // Spotify orders images largest-first, so the last is the smallest.
+        let art = album
+            .and_then(|a| a.images.into_iter().last())
+            .map(|i| i.url)
+            .unwrap_or_default();
+        let artist = artists
+            .iter()
+            .map(|a| a.name.as_str())
+            .filter(|n| !n.is_empty())
+            .collect::<Vec<_>>()
+            .join(", ");
+        TrackLite { title: name, artist, art, uri, duration_ms }
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Queue {
+    now: Option<TrackLite>,
+    up_next: Vec<TrackLite>,
+}
+
+#[derive(Deserialize)]
+struct QueueResponse {
+    currently_playing: Option<Item>,
+    #[serde(default)]
+    queue: Vec<Item>,
+}
+
+/// Currently playing + up-next. Read-only: the Web API can't reorder or remove.
+#[tauri::command]
+pub async fn get_queue() -> Result<Queue, String> {
+    let token = valid_access_token().await?;
+    let resp = crate::http::client()
+        .get(format!("{API}/me/player/queue"))
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if resp.status() == StatusCode::NO_CONTENT {
+        return Ok(Queue { now: None, up_next: Vec::new() });
+    }
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(format!("/me/player/queue returned {status}: {body}"));
+    }
+
+    let q: QueueResponse = resp.json().await.map_err(|e| e.to_string())?;
+    Ok(Queue {
+        now: q.currently_playing.map(Item::into_lite),
+        up_next: q.queue.into_iter().take(20).map(Item::into_lite).collect(),
+    })
+}
+
+#[derive(Deserialize)]
+struct SearchResponse {
+    tracks: Option<Tracks>,
+}
+
+#[derive(Deserialize)]
+struct Tracks {
+    #[serde(default)]
+    items: Vec<Item>,
+}
+
+/// Track search. Note the Feb-2026 cap: `limit` max is 10.
+#[tauri::command]
+pub async fn search(query: String) -> Result<Vec<TrackLite>, String> {
+    let query = query.trim();
+    if query.is_empty() {
+        return Ok(Vec::new());
+    }
+    let token = valid_access_token().await?;
+    let resp = crate::http::client()
+        .get(format!("{API}/search"))
+        .query(&[("q", query), ("type", "track"), ("limit", "10")])
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(format!("/search returned {status}: {body}"));
+    }
+
+    let s: SearchResponse = resp.json().await.map_err(|e| e.to_string())?;
+    Ok(s.tracks
+        .map(|t| t.items)
+        .unwrap_or_default()
+        .into_iter()
+        .map(Item::into_lite)
+        .collect())
+}
+
+/// Append a track to the end of the queue (the only queue mutation the API allows).
+#[tauri::command]
+pub async fn add_to_queue(uri: String) -> Result<(), String> {
+    let uri = urlencoding::encode(&uri);
+    send(Method::POST, &format!("/me/player/queue?uri={uri}")).await
+}
+
+/// Jump to a song in the queue by skipping forward to it. The Web API has no
+/// "play the Nth queued item" endpoint, and `PUT /play {uris}` would replace the
+/// context and wipe the queue — so we advance with `next` `steps` times, which
+/// consumes the intervening tracks and preserves the rest of the queue. A small
+/// gap between skips keeps the desktop client from dropping rapid commands.
+#[tauri::command]
+pub async fn skip_forward(steps: u32) -> Result<(), String> {
+    let steps = steps.clamp(1, 50);
+    for i in 0..steps {
+        send(Method::POST, "/me/player/next").await?;
+        if i + 1 < steps {
+            tokio::time::sleep(std::time::Duration::from_millis(160)).await;
+        }
+    }
+    Ok(())
 }

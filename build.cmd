@@ -1,11 +1,13 @@
 @echo off
 REM ============================================================
-REM  lume dev launcher (Windows). Wires up what a bare
-REM  `npm run tauri dev` lacks on this machine:
-REM    1. cargo on PATH (rustup install never set it)
-REM    2. portable MSVC compiler/linker env (no admin install)
-REM    3. optional proxy, read from .env (LUME_HTTP_PROXY)
-REM  Run from PowerShell with:  .\dev.cmd
+REM  lume Windows build (portable MSVC + optional proxy from .env)
+REM  Usage:
+REM    .\build.cmd               full build + installers (NSIS/MSI)
+REM    .\build.cmd --no-bundle   just the runnable .exe (fastest, no
+REM                              installer-tooling download)
+REM  Output:
+REM    exe:        src-tauri\target\release\lume.exe
+REM    installers: src-tauri\target\release\bundle\
 REM ============================================================
 
 call "C:\Users\rs-fhalim\msvc\setup_x64.bat"
@@ -19,10 +21,9 @@ if exist "%~dp0.env" for /f "usebackq eol=# tokens=1,* delims==" %%a in ("%~dp0.
 if not "%LUME_HTTP_PROXY%"=="" (
   set "HTTP_PROXY=%LUME_HTTP_PROXY%"
   set "HTTPS_PROXY=%LUME_HTTP_PROXY%"
-  REM Keep the OAuth loopback (127.0.0.1:8888) and Vite dev server off the proxy.
   set "NO_PROXY=localhost,127.0.0.1"
-  echo [dev.cmd] using proxy %LUME_HTTP_PROXY%
+  echo [build.cmd] using proxy %LUME_HTTP_PROXY%
 )
 
 cd /d "%~dp0"
-npm run tauri dev
+npm run tauri -- build %*
