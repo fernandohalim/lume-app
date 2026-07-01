@@ -1016,6 +1016,13 @@
     background: var(--bg);
     box-shadow: var(--card-shadow);
     overflow: hidden;
+    /* clip-path enforces the rounded corners at the compositor level. The
+       album-art bloom (filter: blur) renders into a separate composited texture
+       that ignores border-radius/overflow on macOS WKWebView — bleeding an
+       opaque rectangle into the corners (visible as black corner triangles,
+       worst with dark/monochrome covers). clip-path DOES clip composited
+       descendants, so it contains the bloom. */
+    clip-path: inset(0 round var(--radius));
   }
 
   /* Drag hint: a slim strip pinned to the top that grows + reveals a grip pill
@@ -1437,6 +1444,8 @@
     overflow: hidden;
     display: grid;
     place-items: center;
+    /* Same macOS fix as .app: clip-path contains the blurred gate-bloom. */
+    clip-path: inset(0 round var(--radius));
   }
   .gate-bloom {
     inset: -40%;
@@ -1572,6 +1581,8 @@
     overflow: hidden;
     cursor: grab;
     user-select: none;
+    /* Same macOS fix as .app: clip-path contains the blurred pill-bloom. */
+    clip-path: inset(0 round 26px);
   }
   .pill:active { cursor: grabbing; }
   /* Same light-source motif, scaled down: art blooms behind the pill. */

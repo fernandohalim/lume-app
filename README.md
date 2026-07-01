@@ -51,7 +51,49 @@ this project pairs a small native Rust core with a lightweight web frontend:
 * **Music Control:** [Spotify Web API](https://developer.spotify.com/documentation/web-api)
 * **Lyrics:** [LRCLIB](https://lrclib.net/) (free, synced `.lrc`, no auth)
 
-## Getting started
+## Install (download & run)
+
+Grab the latest build from the [Releases](https://github.com/fernandohalim/lume-app/releases)
+page. These are unsigned personal-use builds, and **everyone brings their own
+Spotify Client ID** — a Spotify dev-mode app allows up to 5 users and no Client ID
+is baked into the download.
+
+**First, create your Spotify app (both platforms):** at the
+[Developer Dashboard](https://developer.spotify.com/dashboard) choose *Web API*, set
+the redirect URI to `http://127.0.0.1:8888/callback` (the `127.0.0.1` IP form, **not**
+`localhost`), and under *Settings → User Management* add your own Spotify account
+(**Premium required**). Copy the **Client ID** — you'll paste it into `lume.env`.
+
+<details open>
+<summary><b>Windows</b></summary>
+
+1. Run the installer (`lūme_1.0.0_x64-setup.exe`) — or unzip the portable build.
+   The installer **auto-creates a starter `lume.env` next to `lume.exe`** (Start-menu
+   entry → *Open file location*).
+2. Open that `lume.env` in Notepad, set `LUME_SPOTIFY_CLIENT_ID=<your client id>`, save.
+3. Launch lūme → **Connect Spotify**. Keep the Spotify desktop app running.
+
+</details>
+
+<details open>
+<summary><b>macOS</b></summary>
+
+macOS has no installer step to drop a config file beside the app, so lūme ships its
+`lume.env` **inside the app bundle**, next to the binary, where the app reads it.
+
+1. Open the `.dmg` and drag **lūme.app** into Applications (or any folder).
+2. First launch (unsigned): **right-click lūme.app → Open → Open**. You only do this
+   once. *(Terminal alternative: `xattr -dr com.apple.quarantine /Applications/lūme.app`)*
+3. Set your Client ID: **right-click lūme.app → Show Package Contents →
+   `Contents/MacOS/lume.env`**, open it in TextEdit, set
+   `LUME_SPOTIFY_CLIENT_ID=<your client id>`, and save.
+4. Reopen lūme → **Connect Spotify**. Keep the Spotify desktop app running.
+
+> A `SETUP.txt` with these same steps rides along in the `.dmg`.
+
+</details>
+
+## Build from source
 
 You'll need [Node.js](https://nodejs.org/), the [Rust toolchain](https://rustup.rs/),
 the [Tauri OS prerequisites](https://tauri.app/start/prerequisites/), and a **Spotify
